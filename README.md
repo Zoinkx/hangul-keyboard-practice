@@ -1,5 +1,3 @@
-⌨️ hangul-keyboard-practice
-
 # ⌨️ hangul-keyboard-practice> 
 **[🚀 Click here to play the live trainer!](https://zoinkx.github.io/hangul-keyboard-practice/)**
 
