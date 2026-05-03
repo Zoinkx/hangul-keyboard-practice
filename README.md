@@ -1,5 +1,7 @@
 ⌨️ hangul-keyboard-practice
 
+# ⌨️ hangul-keyboard-practice> **[🚀 Click here to play the live trainer!](https://zoinkx.github.io/hangul-keyboard-practice/)**
+
 A web-based Hangul (Korean) Typing Trainer designed to help users master the 2-beolsik (standard) keyboard layout through visual muscle memory.
 ✨ Features
 
