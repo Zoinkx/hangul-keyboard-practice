@@ -330,12 +330,34 @@
   }
 
   // --- Game Logic ---
-  const levelBank = [
+const levelBank = [
+    // --- Level 1: Basics & Greetings ---
     { word: "안녕하세요", translation: "(Hello)" },
-    { word: "떡볶이", translation: "(Spicy Rice Cakes)" },
     { word: "감사합니다", translation: "(Thank you)" },
-    { word: "예쁘다", translation: "(Pretty)" },
-    { word: "컴퓨터", translation: "(Computer)" }
+    { word: "네", translation: "(Yes)" },
+    { word: "아니요", translation: "(No)" },
+    { word: "친구", translation: "(Friend)" },
+
+    // --- Level 2: Food & Objects ---
+    { word: "사과", translation: "(Apple)" },
+    { word: "물", translation: "(Water)" },
+    { word: "고양이", translation: "(Cat)" },
+    { word: "우유", translation: "(Milk)" },
+    { word: "컴퓨터", translation: "(Computer)" },
+
+    // --- Level 3: Verbs (Middle Row practice) ---
+    { word: "사랑해", translation: "(I love you)" },
+    { word: "먹다", translation: "(To eat)" },
+    { word: "가다", translation: "(To go)" },
+    { word: "보다", translation: "(To see)" },
+
+    // --- Level 4: The "Shift" Challenge (Double Consonants) ---
+    { word: "떡볶이", translation: "(Spicy Rice Cakes - ㄸ, ㄲ)" },
+    { word: "예쁘다", translation: "(Pretty - ㅖ, ㅃ)" },
+    { word: "짜장면", translation: "(Black Bean Noodles - ㅉ)" },
+    { word: "코끼리", translation: "(Elephant - ㄲ)" },
+    { word: "아빠", translation: "(Dad - ㅃ)" },
+    { word: "토끼", translation: "(Rabbit - ㄲ)" }
   ];
 
   let currentWordIndex = 0;
