@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hangul Keyboard Trainer</title>
+
+<script src="https://unpkg.com/hangul-js" type="text/javascript"></script>
+
+<style>
+  :root {
+    --bg-color: #f4f4f9;
+    --key-bg: #ffffff;
+    --key-border: #d1d5db;
+    --key-active: #a78bfa; 
+    --key-error: #ef4444; 
+    --text-main: #1f2937;
+    --text-sub: #6b7280;
+    --score-color: #10b981; 
+    --combo-color: #f59e0b; 
+    
+    --guide-pinky-l: #fca5a5;  
+    --guide-ring-l:  #fdba74;  
+    --guide-mid-l:   #fde047;  
+    --guide-index-l: #86efac;  
+    
+    --guide-index-r: #86efac;  
+    --guide-mid-r:   #fde047;  
+    --guide-ring-r:  #fdba74;  
+    --guide-pinky-r: #fca5a5;  
+
+    /* NEW: Default ghost speed variable */
+    --ghost-speed: 1.5s; 
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden; 
+  }
+
+  .container { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 850px; padding: 20px; }
+
+  .target-sentence { font-size: 3rem; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px; }
+  .translation { font-size: 1.2rem; color: var(--text-sub); margin-bottom: 30px; }
+
+  input[type="text"] {
+    width: 80%; max-width: 500px; font-size: 1.8rem; padding: 15px;
+    border: 2px solid var(--key-border); border-radius: 10px; margin-bottom: 30px;
+    text-align: center; outline: none; transition: border-color 0.2s, color 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  }
+  input[type="text"]:focus { border-color: var(--key-active); }
+
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .error-shake { animation: shake 0.3s; border-color: var(--key-error) !important; color: var(--key-error); }
+
+  .keyboard {
+    display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+    background: #e5e7eb; padding: 20px; border-radius: 15px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transition: all 0.3s ease;
+    width: max-content; 
+  }
+  
+  .row { display: flex; gap: 10px; width: 100%; justify-content: flex-start; }
+  .row-top { padding-left: 50px; }
+  .row-home { padding-left: 75px; }
+  .row-bottom { padding-left: 0; }
+
+  .key {
+    background-color: var(--key-bg); border: 1px solid var(--key-border); border-radius: 8px;
+    width: 55px; height: 60px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: all 0.1s ease; user-select: none; position: relative;
+  }
+  
+  .key.wide { width: 90px; }
+  .key.wide-right { width: 115px; } 
+  .key.wide .latin, .key.wide-right .latin { font-size: 1rem; font-weight: bold; color: var(--text-main); }
+
+  .key .hangul { font-size: 1.4rem; font-weight: bold; transition: color 0.2s; }
+  .key .latin { font-size: 0.75rem; color: var(--text-sub); transition: color 0.2s; }
+
+  .key.active { background-color: var(--key-active) !important; color: white; transform: translateY(4px); box-shadow: 0 0px 0px rgba(0,0,0,0); border-color: var(--key-active) !important; }
+  .key.active .latin { color: #e5e7eb; }
+  .key.error-flash { background-color: var(--key-error) !important; color: white; transform: translateY(4px); box-shadow: 0 0px 0px rgba(0,0,0,0); border-color: var(--key-error) !important; }
+  .key.error-flash .latin { color: #fee2e2; }
+
+  .key[data-finger="pinky-l"] { --finger-color: var(--guide-pinky-l); }
+  .key[data-finger="ring-l"]  { --finger-color: var(--guide-ring-l); }
+  .key[data-finger="mid-l"]   { --finger-color: var(--guide-mid-l); }
+  .key[data-finger="index-l"] { --finger-color: var(--guide-index-l); }
+  .key[data-finger="index-r"] { --finger-color: var(--guide-index-r); }
+  .key[data-finger="mid-r"]   { --finger-color: var(--guide-mid-r); }
+  .key[data-finger="ring-r"]  { --finger-color: var(--guide-ring-r); }
+  .key[data-finger="pinky-r"] { --finger-color: var(--guide-pinky-r); }
+
+  .keyboard.show-guides .key.home { 
+    background-color: color-mix(in srgb, var(--finger-color) 30%, white);
+    border-color: color-mix(in srgb, var(--finger-color) 50%, #d1d5db); 
+  }
+
+  .keyboard.show-guides .key.home.finger-lifted {
+    background-color: var(--key-bg) !important;
+    border-color: var(--key-border) !important;
+  }
+  .keyboard.show-guides .key.home.finger-lifted .latin { color: var(--text-sub) !important; }
+
+  @keyframes hintPulse {
+    0% { box-shadow: 0 0 0 0 var(--finger-color); }
+    50% { box-shadow: 0 0 15px 3px var(--finger-color); }
+    100% { box-shadow: 0 0 0 0 var(--finger-color); }
+  }
+
+  .keyboard.show-guides .key.hint {
+    background-color: var(--finger-color) !important; 
+    border-color: var(--finger-color) !important;
+    animation: hintPulse 1.5s infinite;
+    z-index: 10;
+  }
+  .keyboard.show-guides .key.hint .hangul { color: #000; }
+  .keyboard.show-guides .key.hint .latin { color: #4b5563; }
+
+  .ghost-finger {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-left: -12px; 
+    margin-top: -12px;
+    pointer-events: none; 
+    z-index: 100; 
+    opacity: 0.9;
+    /* NEW: Uses the CSS variable for dynamic speed! */
+    transition: transform var(--ghost-speed) cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* --- Bottom Panel Redesign --- */
+  .bottom-panel { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    width: 100%; 
+    max-width: 750px; /* Made slightly wider to fit the new slider */
+    margin-top: 30px; 
+    padding: 15px 25px; 
+    background: #ffffff; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+    border: 1px solid #f3f4f6; 
+  }
+
+  .stats-bar { display: flex; gap: 20px; font-size: 1.2rem; font-weight: bold; }
+  .score { color: var(--score-color); }
+  .combo { color: var(--combo-color); transition: transform 0.2s; }
+  .combo.bump { transform: scale(1.3); }
+
+  .controls-right { display: flex; align-items: center; gap: 25px; }
+
+  /* NEW: Slider Styles */
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  
+  .slider-group input[type="range"] {
+    accent-color: var(--key-active);
+    cursor: pointer;
+    width: 100px;
+  }
+
+  .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-sub); font-weight: 500; }
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 22px; }
+  .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  input:checked + .slider { background-color: var(--key-active); }
+  input:checked + .slider:before { transform: translateX(18px); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div class="target-sentence" id="targetWord">...</div>
+  <div class="translation" id="targetTranslation">...</div>
+  <input type="text" id="userInput" placeholder="Type here..." autocomplete="off" />
+
+  <div class="keyboard show-guides" id="keyboardArea">
+    <div class="row row-top">
+      <div class="key" data-code="KeyQ" data-finger="pinky-l"><span class="hangul">ㅂ</span><span class="latin">Q</span></div>
+      <div class="key" data-code="KeyW" data-finger="ring-l"><span class="hangul">ㅈ</span><span class="latin">W</span></div>
+      <div class="key" data-code="KeyE" data-finger="mid-l"><span class="hangul">ㄷ</span><span class="latin">E</span></div>
+      <div class="key" data-code="KeyR" data-finger="index-l"><span class="hangul">ㄱ</span><span class="latin">R</span></div>
+      <div class="key" data-code="KeyT" data-finger="index-l"><span class="hangul">ㅅ</span><span class="latin">T</span></div>
+      <div class="key" data-code="KeyY" data-finger="index-r"><span class="hangul">ㅛ</span><span class="latin">Y</span></div>
+      <div class="key" data-code="KeyU" data-finger="index-r"><span class="hangul">ㅕ</span><span class="latin">U</span></div>
+      <div class="key" data-code="KeyI" data-finger="mid-r"><span class="hangul">ㅑ</span><span class="latin">I</span></div>
+      <div class="key" data-code="KeyO" data-finger="ring-r"><span class="hangul">ㅐ</span><span class="latin">O</span></div>
+      <div class="key" data-code="KeyP" data-finger="pinky-r"><span class="hangul">ㅔ</span><span class="latin">P</span></div>
+    </div>
+    
+    <div class="row row-home">
+      <div class="key home" data-code="KeyA" data-finger="pinky-l"><span class="hangul">ㅁ</span><span class="latin">A</span></div>
+      <div class="key home" data-code="KeyS" data-finger="ring-l"><span class="hangul">ㄴ</span><span class="latin">S</span></div>
+      <div class="key home" data-code="KeyD" data-finger="mid-l"><span class="hangul">ㅇ</span><span class="latin">D</span></div>
+      <div class="key home" data-code="KeyF" data-finger="index-l"><span class="hangul">ㄹ</span><span class="latin">F</span></div>
+      <div class="key" data-code="KeyG" data-finger="index-l"><span class="hangul">ㅎ</span><span class="latin">G</span></div>
+      <div class="key" data-code="KeyH" data-finger="index-r"><span class="hangul">ㅗ</span><span class="latin">H</span></div>
+      <div class="key home" data-code="KeyJ" data-finger="index-r"><span class="hangul">ㅓ</span><span class="latin">J</span></div>
+      <div class="key home" data-code="KeyK" data-finger="mid-r"><span class="hangul">ㅏ</span><span class="latin">K</span></div>
+      <div class="key home" data-code="KeyL" data-finger="ring-r"><span class="hangul">ㅣ</span><span class="latin">L</span></div>
+      <div class="key home" data-code="Semicolon" data-finger="pinky-r"><span class="hangul">;</span><span class="latin">;</span></div>
+    </div>
+    
+    <div class="row row-bottom">
+      <div class="key wide" data-code="ShiftLeft" data-finger="pinky-l"><span class="latin">SHIFT</span></div>
+      <div class="key" data-code="KeyZ" data-finger="pinky-l"><span class="hangul">ㅋ</span><span class="latin">Z</span></div>
+      <div class="key" data-code="KeyX" data-finger="ring-l"><span class="hangul">ㅌ</span><span class="latin">X</span></div>
+      <div class="key" data-code="KeyC" data-finger="mid-l"><span class="hangul">ㅊ</span><span class="latin">C</span></div>
+      <div class="key" data-code="KeyV" data-finger="index-l"><span class="hangul">ㅍ</span><span class="latin">V</span></div>
+      <div class="key" data-code="KeyB" data-finger="index-l"><span class="hangul">ㅠ</span><span class="latin">B</span></div>
+      <div class="key" data-code="KeyN" data-finger="index-r"><span class="hangul">ㅜ</span><span class="latin">N</span></div>
+      <div class="key" data-code="KeyM" data-finger="index-r"><span class="hangul">ㅡ</span><span class="latin">M</span></div>
+      <div class="key wide-right" data-code="ShiftRight" data-finger="pinky-r"><span class="latin">SHIFT</span></div>
+    </div>
+  </div>
+
+  <div class="bottom-panel">
+    <div class="stats-bar">
+      <div class="score">Score: <span id="scoreDisplay">0</span></div>
+      <div class="combo">Combo: <span id="comboDisplay">x1</span></div>
+    </div>
+    
+    <div class="controls-right">
+      <!-- NEW: The Speed Slider -->
+      <div class="slider-group">
+        <span>Speed: <span id="speedDisplay">1.5s</span></span>
+        <!-- Range: 0.2 seconds (super fast) to 3.0 seconds (very slow) -->
+        <input type="range" id="animationSpeed" min="0.2" max="3.0" step="0.1" value="1.5">
+      </div>
+
+      <div class="toggle-container">
+        <span>Guides</span>
+        <label class="switch">
+          <input type="checkbox" id="guideToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // --- UI Controls ---
+  const guideToggle = document.getElementById('guideToggle');
+  const keyboardArea = document.getElementById('keyboardArea');
+  const speedSlider = document.getElementById('animationSpeed');
+  const speedDisplay = document.getElementById('speedDisplay');
+  
+  let guidesEnabled = true;
+  let currentGhostSpeed = 1.5; // Starts at 1.5 seconds
+
+  // Toggle Guides Event
+  guideToggle.addEventListener('change', (e) => {
+    guidesEnabled = e.target.checked;
+    if (guidesEnabled) keyboardArea.classList.add('show-guides');
+    else keyboardArea.classList.remove('show-guides');
+    inputField.focus(); 
+  });
+
+  // NEW: Slider Event
+  speedSlider.addEventListener('input', (e) => {
+    currentGhostSpeed = parseFloat(e.target.value);
+    speedDisplay.innerText = currentGhostSpeed.toFixed(1) + 's';
+    
+    // Dynamically update the CSS variable that controls the animation time
+    document.documentElement.style.setProperty('--ghost-speed', `${currentGhostSpeed}s`);
+    inputField.focus(); 
+  });
+
+  function spawnGhostFinger(homeKey, targetKey, cssColorVariable) {
+    if (!guidesEnabled) return; 
+
+    const ghost = document.createElement('div');
+    ghost.classList.add('ghost-finger');
+    
+    const color = getComputedStyle(targetKey).getPropertyValue(cssColorVariable).trim();
+    ghost.style.backgroundColor = color;
+    ghost.style.boxShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
+
+    const homeRect = homeKey.getBoundingClientRect();
+    const targetRect = targetKey.getBoundingClientRect();
+
+    const startX = homeRect.left + window.scrollX + homeRect.width / 2;
+    const startY = homeRect.top + window.scrollY + homeRect.height / 2;
+    const endX = targetRect.left + window.scrollX + targetRect.width / 2;
+    const endY = targetRect.top + window.scrollY + targetRect.height / 2;
+
+    ghost.style.left = `${startX}px`;
+    ghost.style.top = `${startY}px`;
+
+    document.body.appendChild(ghost);
+
+    void ghost.offsetWidth; 
+
+    ghost.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`;
+
+    // NEW: Use the slider's math to determine how long to wait before fading!
+    // Multiply by 1000 to convert seconds to milliseconds
+    const flightTimeMs = currentGhostSpeed * 1000;
+
+    setTimeout(() => {
+        ghost.style.transition = 'opacity 0.4s ease';
+        ghost.style.opacity = '0';
+        setTimeout(() => ghost.remove(), 400); // 400ms buffer to let it fade cleanly
+    }, flightTimeMs);
+  }
+
+  // --- Game Logic ---
+  const levelBank = [
+    { word: "안녕하세요", translation: "(Hello)" },
+    { word: "떡볶이", translation: "(Spicy Rice Cakes)" },
+    { word: "감사합니다", translation: "(Thank you)" },
+    { word: "예쁘다", translation: "(Pretty)" },
+    { word: "컴퓨터", translation: "(Computer)" }
+  ];
+
+  let currentWordIndex = 0;
+  let targetJamoSequence = [];
+  let typedJamo = [];
+  let score = 0;
+  let combo = 1;
+
+  const inputField = document.getElementById('userInput');
+  const targetWordEl = document.getElementById('targetWord');
+  const targetTransEl = document.getElementById('targetTranslation');
+  const scoreDisplay = document.getElementById('scoreDisplay');
+  const comboDisplay = document.getElementById('comboDisplay');
+  const comboWrapper = document.querySelector('.combo');
+
+  const reverseKeyMap = {
+    'ㅂ':'KeyQ', 'ㅃ':'KeyQ', 'ㅈ':'KeyW', 'ㅉ':'KeyW', 'ㄷ':'KeyE', 'ㄸ':'KeyE', 'ㄱ':'KeyR', 'ㄲ':'KeyR', 'ㅅ':'KeyT', 'ㅆ':'KeyT',
+    'ㅛ':'KeyY', 'ㅕ':'KeyU', 'ㅑ':'KeyI', 'ㅐ':'KeyO', 'ㅒ':'KeyO', 'ㅔ':'KeyP', 'ㅖ':'KeyP',
+    'ㅁ':'KeyA', 'ㄴ':'KeyS', 'ㅇ':'KeyD', 'ㄹ':'KeyF', 'ㅎ':'KeyG', 'ㅗ':'KeyH', 'ㅓ':'KeyJ', 'ㅏ':'KeyK', 'ㅣ':'KeyL',
+    'ㅋ':'KeyZ', 'ㅌ':'KeyX', 'ㅊ':'KeyC', 'ㅍ':'KeyV', 'ㅠ':'KeyB', 'ㅜ':'KeyN', 'ㅡ':'KeyM', ' ':'Space'
+  };
+
+  const shiftRequiredLetters = ['ㅃ', 'ㅉ', 'ㄸ', 'ㄲ', 'ㅆ', 'ㅒ', 'ㅖ'];
+
+  function updateHint() {
+    document.querySelectorAll('.key.hint').forEach(k => k.classList.remove('hint'));
+    document.querySelectorAll('.key.finger-lifted').forEach(k => k.classList.remove('finger-lifted'));
+
+    const expectedLetter = targetJamoSequence[typedJamo.length];
+    if (!expectedLetter) return; 
+
+    const nextKeyCode = reverseKeyMap[expectedLetter];
+    if (nextKeyCode) {
+      const nextKeyEl = document.querySelector(`.key[data-code="${nextKeyCode}"]`);
+      if (nextKeyEl) {
+        
+        nextKeyEl.classList.add('hint');
+        const usedFinger = nextKeyEl.getAttribute('data-finger');
+        
+        if (!nextKeyEl.classList.contains('home')) {
+          const homeKeyToLift = document.querySelector(`.key.home[data-finger="${usedFinger}"]`);
+          if (homeKeyToLift) {
+            homeKeyToLift.classList.add('finger-lifted');
+            spawnGhostFinger(homeKeyToLift, nextKeyEl, '--finger-color');
+          }
+        }
+        
+        if (shiftRequiredLetters.includes(expectedLetter)) {
+          const shiftKeys = document.querySelectorAll('.key[data-code^="Shift"]');
+          shiftKeys.forEach(shiftKey => {
+            shiftKey.classList.add('hint');
+            const shiftFinger = shiftKey.getAttribute('data-finger');
+            const shiftHomeKey = document.querySelector(`.key.home[data-finger="${shiftFinger}"]`);
+            if (shiftHomeKey) {
+                shiftHomeKey.classList.add('finger-lifted');
+                spawnGhostFinger(shiftHomeKey, shiftKey, '--finger-color');
+            }
+          });
+        }
+      }
+    }
+  }
+
+  function loadNextWord() {
+    if (currentWordIndex >= levelBank.length) currentWordIndex = 0; 
+    const currentData = levelBank[currentWordIndex];
+    targetWordEl.innerText = currentData.word;
+    targetTransEl.innerText = currentData.translation;
+    targetJamoSequence = Hangul.disassemble(currentData.word);
+    typedJamo = [];
+    inputField.value = "";
+    
+    updateHint(); 
+  }
+
+  function updateScore(isSuccess) {
+    if (isSuccess) {
+      score += (10 * combo);
+      combo++;
+      comboWrapper.classList.add('bump');
+      setTimeout(() => comboWrapper.classList.remove('bump'), 200);
+    } else {
+      combo = 1; 
+    }
+    scoreDisplay.innerText = score;
+    comboDisplay.innerText = "x" + combo;
+  }
+
+  const keyMap = {
+    'q': 'ㅂ', 'w': 'ㅈ', 'e': 'ㄷ', 'r': 'ㄱ', 't': 'ㅅ', 'y': 'ㅛ', 'u': 'ㅕ', 'i': 'ㅑ', 'o': 'ㅐ', 'p': 'ㅔ',
+    'a': 'ㅁ', 's': 'ㄴ', 'd': 'ㅇ', 'f': 'ㄹ', 'g': 'ㅎ', 'h': 'ㅗ', 'j': 'ㅓ', 'k': 'ㅏ', 'l': 'ㅣ',
+    'z': 'ㅋ', 'x': 'ㅌ', 'c': 'ㅊ', 'v': 'ㅍ', 'b': 'ㅠ', 'n': 'ㅜ', 'm': 'ㅡ',
+    'Q': 'ㅃ', 'W': 'ㅉ', 'E': 'ㄸ', 'R': 'ㄲ', 'T': 'ㅆ', 'O': 'ㅒ', 'P': 'ㅖ' 
+  };
+
+  document.addEventListener('keydown', (event) => {
+    const keyElement = document.querySelector(`.key[data-code="${event.code}"]`);
+    if (keyElement) keyElement.classList.add('active');
+  });
+
+  inputField.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift') return;
+
+    if (keyMap[e.key]) {
+      e.preventDefault(); 
+      const expectedLetter = targetJamoSequence[typedJamo.length];
+      const typedLetter = keyMap[e.key];
+
+      if (typedLetter === expectedLetter) {
+        typedJamo.push(typedLetter);
+        inputField.value = Hangul.assemble(typedJamo);
+        inputField.classList.remove('error-shake'); 
+
+        if (typedJamo.length === targetJamoSequence.length) {
+            updateScore(true); 
+            currentWordIndex++; 
+            loadNextWord(); 
+        } else {
+            updateHint(); 
+        }
+      } else {
+        updateScore(false); 
+        inputField.classList.remove('error-shake');
+        void inputField.offsetWidth; 
+        inputField.classList.add('error-shake');
+        
+        const keyElement = document.querySelector(`.key[data-code="${e.code}"]`);
+        if (keyElement) {
+          keyElement.classList.add('error-flash');
+          setTimeout(() => keyElement.classList.remove('error-flash'), 300);
+        }
+      }
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      typedJamo.pop(); 
+      inputField.value = Hangul.assemble(typedJamo);
+      inputField.classList.remove('error-shake');
+      updateHint(); 
+    }
+  });
+
+  document.addEventListener('keyup', (event) => {
+    const keyElement = document.querySelector(`.key[data-code="${event.code}"]`);
+    if (keyElement) keyElement.classList.remove('active');
+  });
+
+  document.addEventListener('click', () => {
+    inputField.focus();
+  });
+  
+  loadNextWord();
+</script>
+
+</body>
+</html>
